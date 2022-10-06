@@ -9,6 +9,10 @@ use gl::types::*;
 use image;
 
 
+const HEIGHT: u32 = 800;
+const WIDTH: u32 = 800;
+
+
 fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
     for (_, event) in glfw::flush_messages(events) {
         if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
@@ -21,7 +25,7 @@ fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::Windo
 fn main() {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
     let (mut window, events) = glfw
-        .create_window(800, 800, "opengl", glfw::WindowMode::Windowed)
+        .create_window(WIDTH, HEIGHT, "opengl", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window");
     window.set_key_polling(true);
     window.make_current();
