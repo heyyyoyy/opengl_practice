@@ -162,6 +162,7 @@ fn main() {
 
 
     while !window.should_close() {
+        glfw.poll_events();
         process_events(&mut window, &events);
 
         unsafe {
@@ -176,7 +177,6 @@ fn main() {
         }
 
         window.swap_buffers();
-        glfw.poll_events();
     }
 }
 
