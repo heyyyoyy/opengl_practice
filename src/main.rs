@@ -7,6 +7,10 @@ use gl::types::*;
 use std::ptr;
 
 
+const HEIGHT: u32 = 800;
+const WIDTH: u32 = 800;
+
+
 fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
     for (_, event) in glfw::flush_messages(events) {
         if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
@@ -19,7 +23,7 @@ fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::Windo
 fn main() {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
     let (mut window, events) = glfw
-        .create_window(800, 800, "opengl", glfw::WindowMode::Windowed)
+        .create_window(WIDTH, HEIGHT, "opengl", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window");
     window.set_key_polling(true);
     window.make_current();
@@ -31,17 +35,25 @@ fn main() {
         const VERTEX_SHADER_SOURCE: &str = r#"
             #version 330 core
             layout (location = 0) in vec3 position;
+            layout (location = 1) in vec3 color;
+
+            out vec3 our_color;
+
             void main()
             {
-                gl_Position = vec4(position.x, position.y, position.z, 1.0);
+                gl_Position = vec4(position, 1.0);
+                our_color = color;
             }
         "#;
         const VERTEX_SHADER_FRAGMENT: &str = r#"
             #version 330 core
+
+            in vec3 our_color;
             out vec4 color;
+
             void main()
             {
-                color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+                color = vec4(our_color, 1.0f);
             }
         "#;
         let c_vertex_shader_source = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
@@ -107,19 +119,15 @@ fn main() {
         gl::DeleteShader(vertex_shader);
         gl::DeleteShader(fragment_shader);
 
-        type Vertex = [GLfloat; 3];
-        type Indexes = [u32; 3];
+        type Vertex = [GLfloat; 6];
 
-        let vertices: [Vertex; 4] = [
-            [0.5,  0.5, 0.0],  // Верхний правый угол
-            [0.5, -0.5, 0.0],  // Нижний правый угол
-            [-0.5, -0.5, 0.0],  // Нижний левый угол
-            [-0.5,  0.5, 0.0]   // Верхний левый угол
+        let vertices: [Vertex; 3] = [
+            // Позиции          // Цвета
+            [0.5,  -0.5, 0.0,   1.0, 0.0, 0.0],   // Нижний правый угол
+            [-0.5, -0.5, 0.0,   0.0, 1.0, 0.0],   // Нижний левый угол
+            [0.0,  0.5,  0.0,   0.0, 0.0, 1.0]    // Верхний угол
         ];
-        let indices: [Indexes; 2] = [
-          [0, 1, 3],
-          [1, 2, 3]
-        ];
+
         let (mut vbo, mut vao, mut ibo) = (0, 0, 0);
         gl::GenVertexArrays(1, &mut vao);
         gl::GenBuffers(1, &mut vbo);
@@ -135,14 +143,7 @@ fn main() {
             gl::STATIC_DRAW
         );
 
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-        gl::BufferData(
-            gl::ELEMENT_ARRAY_BUFFER,
-            mem::size_of_val(&indices) as GLsizeiptr,
-            indices.as_ptr() as *const c_void,
-            gl::STATIC_DRAW
-        );
-
+        // Атрибуты с координатами
         gl::VertexAttribPointer(
             0,
             3,
@@ -153,10 +154,20 @@ fn main() {
         );
         gl::EnableVertexAttribArray(0);
 
+        // Атрибуты с цветом
+        gl::VertexAttribPointer(
+            1,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<Vertex>().try_into().unwrap(),
+            mem::size_of::<[GLfloat; 3]>() as *const _
+        );
+        gl::EnableVertexAttribArray(1);
+
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         gl::BindVertexArray(0);
 
-        // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
         (shader_program, vao)
     };
 
@@ -170,13 +181,14 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             gl::UseProgram(shader_program);
+
             gl::BindVertexArray(vao);
-            // gl::DrawArrays(gl::TRIANGLES, 0, 3);
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);
         }
 
         window.swap_buffers();
+
     }
 }
 
