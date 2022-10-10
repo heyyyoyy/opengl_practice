@@ -8,6 +8,8 @@ use glfw::{Action, Context, Key};
 use gl::types::*;
 use image;
 
+use cgmath::{prelude::*, Matrix4, vec3, Rad};
+
 
 const HEIGHT: u32 = 800;
 const WIDTH: u32 = 800;
@@ -29,11 +31,12 @@ fn main() {
         .expect("Failed to create GLFW window");
     window.set_key_polling(true);
     window.make_current();
+    window.set_resizable(false);
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
     gl::Viewport::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let vao = unsafe {
+    let (shader_program, vao) = unsafe {
         const VERTEX_SHADER_SOURCE: &str = r#"
             #version 330 core
             layout (location = 0) in vec3 position;
@@ -43,9 +46,11 @@ fn main() {
             out vec3 our_color;
             out vec2 tex_coord;
 
+            uniform mat4 transform;
+
             void main()
             {
-                gl_Position = vec4(position.x, position.y, position.z, 1.0);
+                gl_Position = transform * vec4(position, 1.0);
                 our_color = color;
                 tex_coord = TexCoord;
             }
@@ -268,10 +273,10 @@ fn main() {
         gl::ActiveTexture(gl::TEXTURE1);
         gl::BindTexture(gl::TEXTURE_2D, texture2);
         let our_texture2 = CString::new("our_texture2".as_bytes()).unwrap();
-        gl::Uniform1i(gl::GetUniformLocation(shader_program, our_texture2.as_ptr()), 1);  
+        gl::Uniform1i(gl::GetUniformLocation(shader_program, our_texture2.as_ptr()), 1);
 
         // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
-        vao
+        (shader_program, vao)
     };
 
 
@@ -282,6 +287,33 @@ fn main() {
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            let transform_name = CString::new("transform".as_bytes()).unwrap();
+
+            // Вращаем квадрат в правом нижнем углу
+            let mut transform: Matrix4<f32> = Matrix4::identity();
+            transform = transform * Matrix4::<f32>::from_translation(vec3(0.5, -0.5, 0.0));
+            transform = transform * Matrix4::<f32>::from_angle_z(Rad(glfw.get_time() as f32));
+            
+            
+            gl::UseProgram(shader_program);
+            let transform_loc = gl::GetUniformLocation(shader_program, transform_name.as_ptr());
+            gl::UniformMatrix4fv(transform_loc, 1, gl::FALSE, transform.as_ptr());
+
+            gl::BindVertexArray(vao);
+            // gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::BindVertexArray(0);
+
+            // Квадрат в левом верхнем углу со сменой размера
+            let mut transform2: Matrix4<f32> = Matrix4::identity();
+            transform2 = transform2 * Matrix4::<f32>::from_translation(vec3(-0.5, 0.5, 0.0));
+            transform2 = transform2 * Matrix4::<f32>::from_scale((glfw.get_time() as f32).sin());
+            
+            
+            gl::UseProgram(shader_program);
+            let transform_loc2 = gl::GetUniformLocation(shader_program, transform_name.as_ptr());
+            gl::UniformMatrix4fv(transform_loc2, 1, gl::FALSE, transform2.as_ptr());
 
             gl::BindVertexArray(vao);
             // gl::DrawArrays(gl::TRIANGLES, 0, 3);
