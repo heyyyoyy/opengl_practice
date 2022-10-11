@@ -11,8 +11,8 @@ use image;
 use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Rad};
 
 
-const HEIGHT: u32 = 800;
-const WIDTH: u32 = 800;
+const HEIGHT: u32 = 1080;
+const WIDTH: u32 = 1920;
 
 
 fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
@@ -26,11 +26,14 @@ fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::Windo
 
 fn main() {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-    let (mut window, events) = glfw
-        .create_window(WIDTH, HEIGHT, "opengl", glfw::WindowMode::Windowed)
-        .expect("Failed to create GLFW window");
+    let (mut window, events) = glfw.with_primary_monitor(|glfw, m| {
+        glfw.create_window(WIDTH, HEIGHT, "Window",
+            m.map_or(glfw::WindowMode::Windowed, |m| glfw::WindowMode::FullScreen(m)))
+    }).expect("Failed to create GLFW window");
     window.set_key_polling(true);
     window.make_current();
+    // v sync 1 - enable, 0 - disable
+    glfw.set_swap_interval(glfw::SwapInterval::Sync(0));
     window.set_resizable(false);
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
@@ -308,7 +311,7 @@ fn main() {
             let mut view: Matrix4<f32> = Matrix4::identity();
             view = view * Matrix4::<f32>::from_translation(vec3(0., 0., -3.));
 
-            let projection = perspective(Deg(45.), WIDTH as f32 / HEIGHT as f32, 0.1, 100.);
+            let projection = perspective(Deg(80.), WIDTH as f32 / HEIGHT as f32, 0.1, 100.);
 
             let projection_name = CString::new("projection".as_bytes()).unwrap();
             let projection_loc = gl::GetUniformLocation(shader_program, projection_name.as_ptr());
