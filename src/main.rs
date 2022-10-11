@@ -8,7 +8,7 @@ use glfw::{Action, Context, Key};
 use gl::types::*;
 use image;
 
-use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Rad};
+use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Vector3};
 
 
 const HEIGHT: u32 = 1080;
@@ -30,16 +30,17 @@ fn main() {
         glfw.create_window(WIDTH, HEIGHT, "Window",
             m.map_or(glfw::WindowMode::Windowed, |m| glfw::WindowMode::FullScreen(m)))
     }).expect("Failed to create GLFW window");
+
     window.set_key_polling(true);
     window.make_current();
     // v sync 1 - enable, 0 - disable
-    glfw.set_swap_interval(glfw::SwapInterval::Sync(0));
+    glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
     window.set_resizable(false);
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
     gl::Viewport::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let (shader_program, vao) = unsafe {
+    let (shader_program, vao, cube_positions) = unsafe {
         gl::Enable(gl::DEPTH_TEST);
 
         const VERTEX_SHADER_SOURCE: &str = r#"
@@ -189,6 +190,19 @@ fn main() {
             [-0.5,  0.5, -0.5,  0.0, 1.0]
         ];
 
+        let cube_positions: [Vector3<f32>; 10] = [
+            vec3( 0.0,  0.0,  0.0), 
+            vec3( 2.0,  5.0, -15.0), 
+            vec3(-1.5, -2.2, -2.5),  
+            vec3(-3.8, -2.0, -12.3),  
+            vec3( 2.4, -0.4, -3.5),  
+            vec3(-1.7,  3.0, -7.5),  
+            vec3( 1.3, -2.0, -2.5),  
+            vec3( 1.5,  2.0, -2.5), 
+            vec3( 1.5,  0.2, -1.5), 
+            vec3(-1.3,  1.0, -1.5)  
+        ];
+
         let (mut vbo, mut vao) = (0, 0);
         gl::GenVertexArrays(1, &mut vao);
         gl::GenBuffers(1, &mut vbo);
@@ -294,7 +308,7 @@ fn main() {
         gl::Uniform1i(gl::GetUniformLocation(shader_program, our_texture2.as_ptr()), 1);
 
         // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
-        (shader_program, vao)
+        (shader_program, vao, cube_positions)
     };
 
 
@@ -306,7 +320,7 @@ fn main() {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1., 0.).normalize(), Rad(glfw.get_time() as f32));
+            // let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1., 0.).normalize(), Rad(glfw.get_time() as f32));
 
             let mut view: Matrix4<f32> = Matrix4::identity();
             view = view * Matrix4::<f32>::from_translation(vec3(0., 0., -3.));
@@ -323,11 +337,14 @@ fn main() {
 
             let model_name = CString::new("model".as_bytes()).unwrap();
             let model_loc = gl::GetUniformLocation(shader_program, model_name.as_ptr());
-            gl::UniformMatrix4fv(model_loc, 1, gl::FALSE, model.as_ptr());
-
             gl::BindVertexArray(vao);
-            gl::DrawArrays(gl::TRIANGLES, 0, 36);
-            // gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            for (index, cube_vec) in cube_positions.iter().enumerate() {
+                let mut model = Matrix4::from_translation(*cube_vec);
+                let angle = 20. * index as f32;
+                model = model * Matrix4::from_axis_angle(vec3(1., 0.3, 0.5).normalize(), Deg(angle));
+                gl::UniformMatrix4fv(model_loc, 1, gl::FALSE, model.as_ptr());
+                gl::DrawArrays(gl::TRIANGLES, 0, 36);
+            }
             gl::BindVertexArray(0);
         }
 
