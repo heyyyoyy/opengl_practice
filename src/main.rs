@@ -8,7 +8,7 @@ use glfw::{Action, Context, Key};
 use gl::types::*;
 use image;
 
-use cgmath::{prelude::*, Matrix4, vec3, Rad};
+use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Rad};
 
 
 const HEIGHT: u32 = 800;
@@ -37,28 +37,28 @@ fn main() {
     gl::Viewport::load_with(|s| window.get_proc_address(s) as *const _);
 
     let (shader_program, vao) = unsafe {
+        gl::Enable(gl::DEPTH_TEST);
+
         const VERTEX_SHADER_SOURCE: &str = r#"
             #version 330 core
             layout (location = 0) in vec3 position;
-            layout (location = 1) in vec3 color;
-            layout (location = 2) in vec2 TexCoord;
+            layout (location = 1) in vec2 TexCoord;
 
-            out vec3 our_color;
             out vec2 tex_coord;
 
-            uniform mat4 transform;
+            uniform mat4 model;
+            uniform mat4 view;
+            uniform mat4 projection;
 
             void main()
             {
-                gl_Position = transform * vec4(position, 1.0);
-                our_color = color;
+                gl_Position = projection * view * model * vec4(position, 1.0);
                 tex_coord = TexCoord;
             }
         "#;
         const VERTEX_SHADER_FRAGMENT: &str = r#"
             #version 330 core
             
-            in vec3 our_color;
             in vec2 tex_coord;
 
             out vec4 color;
@@ -71,7 +71,7 @@ fn main() {
             {
                 color = mix(
                     texture(our_texture1, tex_coord), 
-                    texture(our_texture2, vec2(tex_coord.x, 1.0f - tex_coord.y)) * vec4(our_color, 1.0f), 
+                    texture(our_texture2, vec2(tex_coord.x, 1.0f - tex_coord.y)), 
                     0.5
                 );
             }
@@ -139,24 +139,56 @@ fn main() {
         gl::DeleteShader(vertex_shader);
         gl::DeleteShader(fragment_shader);
 
-        type Vertex = [GLfloat; 8];
-        type Indexes = [u32; 3];
+        type Vertex = [GLfloat; 5];
 
-        let vertices: [Vertex; 4] = [
-             // Позициии       // Цвета         // Текстуры
-            [0.5,  0.5, 0.0,   1.0, 0.0, 0.0,   1.0, 1.0],  // Верхний правый угол
-            [0.5, -0.5, 0.0,   0.0, 1.0, 0.0,   1.0, 0.0],  // Нижний правый угол
-            [-0.5, -0.5, 0.0,  0.0, 0.0, 1.0,   0.0, 0.0],  // Нижний левый угол
-            [-0.5,  0.5, 0.0,  1.0, 1.0, 0.0,   0.0, 1.0 ]   // Верхний левый угол
+        let vertices: [Vertex; 36] = [
+             // Позициии        // Текстуры
+            [-0.5, -0.5, -0.5,  0.0, 0.0],
+            [0.5, -0.5, -0.5,   1.0, 0.0],
+            [0.5,  0.5, -0.5,   1.0, 1.0],
+            [0.5,  0.5, -0.5,   1.0, 1.0],
+            [-0.5,  0.5, -0.5,  0.0, 1.0],
+            [-0.5, -0.5, -0.5,  0.0, 0.0],
+
+            [-0.5, -0.5,  0.5,  0.0, 0.0],
+            [0.5, -0.5,  0.5,   1.0, 0.0],
+            [0.5,  0.5,  0.5,   1.0, 1.0],
+            [0.5,  0.5,  0.5,   1.0, 1.0],
+            [-0.5,  0.5,  0.5,  0.0, 1.0],
+            [-0.5, -0.5,  0.5,  0.0, 0.0],
+
+            [-0.5,  0.5,  0.5,  1.0, 0.0],
+            [-0.5,  0.5, -0.5,  1.0, 1.0],
+            [-0.5, -0.5, -0.5,  0.0, 1.0],
+            [-0.5, -0.5, -0.5,  0.0, 1.0],
+            [-0.5, -0.5,  0.5,  0.0, 0.0],
+            [-0.5,  0.5,  0.5,  1.0, 0.0],
+
+            [0.5,  0.5,  0.5,   1.0, 0.0],
+            [0.5,  0.5, -0.5,   1.0, 1.0],
+            [0.5, -0.5, -0.5,   0.0, 1.0],
+            [0.5, -0.5, -0.5,   0.0, 1.0],
+            [0.5, -0.5,  0.5,   0.0, 0.0],
+            [0.5,  0.5,  0.5,   1.0, 0.0],
+
+            [-0.5, -0.5, -0.5,  0.0, 1.0],
+            [0.5, -0.5, -0.5,   1.0, 1.0],
+            [0.5, -0.5,  0.5,   1.0, 0.0],
+            [0.5, -0.5,  0.5,   1.0, 0.0],
+            [-0.5, -0.5,  0.5,  0.0, 0.0],
+            [-0.5, -0.5, -0.5,  0.0, 1.0],
+
+            [-0.5,  0.5, -0.5,  0.0, 1.0],
+            [0.5,  0.5, -0.5,   1.0, 1.0],
+            [0.5,  0.5,  0.5,   1.0, 0.0],
+            [0.5,  0.5,  0.5,   1.0, 0.0],
+            [-0.5,  0.5,  0.5,  0.0, 0.0],
+            [-0.5,  0.5, -0.5,  0.0, 1.0]
         ];
-        let indices: [Indexes; 2] = [
-          [0, 1, 3],
-          [1, 2, 3]
-        ];
-        let (mut vbo, mut vao, mut ibo) = (0, 0, 0);
+
+        let (mut vbo, mut vao) = (0, 0);
         gl::GenVertexArrays(1, &mut vao);
         gl::GenBuffers(1, &mut vbo);
-        gl::GenBuffers(1, &mut ibo);
 
         gl::BindVertexArray(vao);
 
@@ -165,14 +197,6 @@ fn main() {
             gl::ARRAY_BUFFER,
             mem::size_of_val(&vertices) as GLsizeiptr,
             vertices.as_ptr() as *const c_void,
-            gl::STATIC_DRAW
-        );
-
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-        gl::BufferData(
-            gl::ELEMENT_ARRAY_BUFFER,
-            mem::size_of_val(&indices) as GLsizeiptr,
-            indices.as_ptr() as *const c_void,
             gl::STATIC_DRAW
         );
 
@@ -240,26 +264,17 @@ fn main() {
             ptr::null()
         );
         gl::EnableVertexAttribArray(0);
-        // Цвета
+
+        // Текстуры
         gl::VertexAttribPointer(
             1,
-            3,
+            2,
             gl::FLOAT,
             gl::FALSE,
             mem::size_of::<Vertex>().try_into().unwrap(),
             mem::size_of::<[GLfloat; 3]>() as *const c_void
         );
         gl::EnableVertexAttribArray(1);
-        // Текстуры
-        gl::VertexAttribPointer(
-            2,
-            2,
-            gl::FLOAT,
-            gl::FALSE,
-            mem::size_of::<Vertex>().try_into().unwrap(),
-            mem::size_of::<[GLfloat; 6]>() as *const c_void
-        );
-        gl::EnableVertexAttribArray(2);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         gl::BindVertexArray(0);
@@ -286,38 +301,30 @@ fn main() {
 
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            let transform_name = CString::new("transform".as_bytes()).unwrap();
+            let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1., 0.).normalize(), Rad(glfw.get_time() as f32));
 
-            // Вращаем квадрат в правом нижнем углу
-            let mut transform: Matrix4<f32> = Matrix4::identity();
-            transform = transform * Matrix4::<f32>::from_translation(vec3(0.5, -0.5, 0.0));
-            transform = transform * Matrix4::<f32>::from_angle_z(Rad(glfw.get_time() as f32));
-            
-            
-            gl::UseProgram(shader_program);
-            let transform_loc = gl::GetUniformLocation(shader_program, transform_name.as_ptr());
-            gl::UniformMatrix4fv(transform_loc, 1, gl::FALSE, transform.as_ptr());
+            let mut view: Matrix4<f32> = Matrix4::identity();
+            view = view * Matrix4::<f32>::from_translation(vec3(0., 0., -3.));
 
-            gl::BindVertexArray(vao);
-            // gl::DrawArrays(gl::TRIANGLES, 0, 3);
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-            gl::BindVertexArray(0);
+            let projection = perspective(Deg(45.), WIDTH as f32 / HEIGHT as f32, 0.1, 100.);
 
-            // Квадрат в левом верхнем углу со сменой размера
-            let mut transform2: Matrix4<f32> = Matrix4::identity();
-            transform2 = transform2 * Matrix4::<f32>::from_translation(vec3(-0.5, 0.5, 0.0));
-            transform2 = transform2 * Matrix4::<f32>::from_scale((glfw.get_time() as f32).sin());
-            
-            
-            gl::UseProgram(shader_program);
-            let transform_loc2 = gl::GetUniformLocation(shader_program, transform_name.as_ptr());
-            gl::UniformMatrix4fv(transform_loc2, 1, gl::FALSE, transform2.as_ptr());
+            let projection_name = CString::new("projection".as_bytes()).unwrap();
+            let projection_loc = gl::GetUniformLocation(shader_program, projection_name.as_ptr());
+            gl::UniformMatrix4fv(projection_loc, 1, gl::FALSE, projection.as_ptr());
+
+            let view_name = CString::new("view".as_bytes()).unwrap();
+            let view_loc = gl::GetUniformLocation(shader_program, view_name.as_ptr());
+            gl::UniformMatrix4fv(view_loc, 1, gl::FALSE, view.as_ptr());
+
+            let model_name = CString::new("model".as_bytes()).unwrap();
+            let model_loc = gl::GetUniformLocation(shader_program, model_name.as_ptr());
+            gl::UniformMatrix4fv(model_loc, 1, gl::FALSE, model.as_ptr());
 
             gl::BindVertexArray(vao);
-            // gl::DrawArrays(gl::TRIANGLES, 0, 3);
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawArrays(gl::TRIANGLES, 0, 36);
+            // gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
             gl::BindVertexArray(0);
         }
 
