@@ -8,7 +8,7 @@ use glfw::{Action, Context, Key};
 use gl::types::*;
 use image;
 
-use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Vector3};
+use cgmath::{prelude::*, Matrix4, vec3, perspective, Deg, Vector3, Point3};
 
 
 const HEIGHT: u32 = 1080;
@@ -40,7 +40,7 @@ fn main() {
     gl::load_with(|s| window.get_proc_address(s) as *const _);
     gl::Viewport::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let (shader_program, vao, cube_positions) = unsafe {
+    let (shader_program, vao, cube_positions, texture1, texture2) = unsafe {
         gl::Enable(gl::DEPTH_TEST);
 
         const VERTEX_SHADER_SOURCE: &str = r#"
@@ -298,17 +298,13 @@ fn main() {
 
         gl::UseProgram(shader_program);
 
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, texture1);
         let our_texture1 = CString::new("our_texture1".as_bytes()).unwrap();
         gl::Uniform1i(gl::GetUniformLocation(shader_program, our_texture1.as_ptr()), 0);
-        gl::ActiveTexture(gl::TEXTURE1);
-        gl::BindTexture(gl::TEXTURE_2D, texture2);
         let our_texture2 = CString::new("our_texture2".as_bytes()).unwrap();
         gl::Uniform1i(gl::GetUniformLocation(shader_program, our_texture2.as_ptr()), 1);
 
         // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
-        (shader_program, vao, cube_positions)
+        (shader_program, vao, cube_positions, texture1, texture2)
     };
 
 
@@ -320,8 +316,22 @@ fn main() {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            let mut view: Matrix4<f32> = Matrix4::identity();
-            view = view * Matrix4::<f32>::from_translation(vec3(0., 0., -3.));
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, texture1);
+            gl::ActiveTexture(gl::TEXTURE1);
+            gl::BindTexture(gl::TEXTURE_2D, texture2);
+
+            gl::UseProgram(shader_program);
+            
+            let radius: f32 = 10.;
+            let cam_x = (glfw.get_time() as f32).sin() * radius;
+            let cam_z = (glfw.get_time() as f32).cos() * radius;
+
+            let view: Matrix4<f32> = Matrix4::look_at_rh(
+                Point3::new(cam_x, 0.0, cam_z), 
+                Point3::new(0., 0., 0.), 
+                vec3(0., 1., 0.)                
+            );
 
             let projection = perspective(Deg(80.), WIDTH as f32 / HEIGHT as f32, 0.1, 100.);
 
