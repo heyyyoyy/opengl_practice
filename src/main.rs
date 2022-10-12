@@ -320,8 +320,6 @@ fn main() {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            // let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1., 0.).normalize(), Rad(glfw.get_time() as f32));
-
             let mut view: Matrix4<f32> = Matrix4::identity();
             view = view * Matrix4::<f32>::from_translation(vec3(0., 0., -3.));
 
@@ -340,7 +338,12 @@ fn main() {
             gl::BindVertexArray(vao);
             for (index, cube_vec) in cube_positions.iter().enumerate() {
                 let mut model = Matrix4::from_translation(*cube_vec);
-                let angle = 20. * index as f32;
+                let time = glfw.get_time() as f32;
+                let angle = if index % 3 == 0 {
+                    30. * time
+                } else {
+                    20. * index as f32
+                };
                 model = model * Matrix4::from_axis_angle(vec3(1., 0.3, 0.5).normalize(), Deg(angle));
                 gl::UniformMatrix4fv(model_loc, 1, gl::FALSE, model.as_ptr());
                 gl::DrawArrays(gl::TRIANGLES, 0, 36);
