@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{ffi::CString, path::Path};
 use std::mem;
 use std::os::raw::c_void;
@@ -15,11 +16,43 @@ const HEIGHT: u32 = 1080;
 const WIDTH: u32 = 1920;
 
 
-fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
+fn process_events(
+    window: &mut glfw::Window, 
+    events: &Receiver<(f64, glfw::WindowEvent)>, 
+    keys: &mut HashMap<Key, bool>
+) {
     for (_, event) in glfw::flush_messages(events) {
-        if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
-                window.set_should_close(true)
-        }
+        match event {
+            glfw::WindowEvent::Key(key, _, action, _) => {
+                match (key, action) {
+                    (Key::Escape, Action::Press) => window.set_should_close(true),
+                    (Key::W | Key::S | Key::A | Key::D, Action::Press | Action::Release) => process_movement(keys, key, action),
+                    _ => ()
+                };
+            }
+            _ => ()
+        };
+    }
+}
+
+fn process_movement(keys: &mut HashMap<Key, bool>, key: Key, action: Action) {
+    match action {
+        Action::Press => keys.insert(key, true),
+        Action::Release => keys.insert(key, false),
+        _ => None,
+    };    
+}
+
+fn do_movement(keys: &HashMap<Key, bool>, camera_pos: &mut Point3<f32>, camera_front: &Vector3<f32>, camera_up: &Vector3<f32>) {
+    let camera_speed = 0.05;
+    for (key, value) in keys {
+        match (key, value) {
+            (Key::W, true) => *camera_pos += camera_speed * camera_front,
+            (Key::S, true) => *camera_pos -= camera_speed * camera_front,
+            (Key::A, true) => *camera_pos -= camera_front.cross(*camera_up).normalize() * camera_speed,
+            (Key::D, true) => *camera_pos += camera_front.cross(*camera_up).normalize() * camera_speed,
+            _ => ()
+        };
     }
 }
 
@@ -307,10 +340,16 @@ fn main() {
         (shader_program, vao, cube_positions, texture1, texture2)
     };
 
+    let mut keys: HashMap<Key, bool> = HashMap::new();
+
+    let mut camera_pos: Point3<f32> = Point3::new(0., 0., 3.);
+    let camera_front: Vector3<f32> = vec3(0., 0., -1.);
+    let camera_up = vec3(0., 1., 0.);
 
     while !window.should_close() {
         glfw.poll_events();
-        process_events(&mut window, &events);
+        process_events(&mut window, &events, &mut keys);
+        do_movement(&keys, &mut camera_pos, &camera_front, &camera_up);
 
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
@@ -323,14 +362,10 @@ fn main() {
 
             gl::UseProgram(shader_program);
             
-            let radius: f32 = 10.;
-            let cam_x = (glfw.get_time() as f32).sin() * radius;
-            let cam_z = (glfw.get_time() as f32).cos() * radius;
-
             let view: Matrix4<f32> = Matrix4::look_at_rh(
-                Point3::new(cam_x, 0.0, cam_z), 
-                Point3::new(0., 0., 0.), 
-                vec3(0., 1., 0.)                
+                camera_pos,
+                camera_pos + camera_front, 
+                camera_up                
             );
 
             let projection = perspective(Deg(80.), WIDTH as f32 / HEIGHT as f32, 0.1, 100.);
