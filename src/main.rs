@@ -43,8 +43,14 @@ fn process_movement(keys: &mut HashMap<Key, bool>, key: Key, action: Action) {
     };    
 }
 
-fn do_movement(keys: &HashMap<Key, bool>, camera_pos: &mut Point3<f32>, camera_front: &Vector3<f32>, camera_up: &Vector3<f32>) {
-    let camera_speed = 0.05;
+fn do_movement(
+    keys: &HashMap<Key, bool>, 
+    camera_pos: &mut Point3<f32>, 
+    camera_front: &Vector3<f32>, 
+    camera_up: &Vector3<f32>,
+    delta_time: f32
+) {
+    let camera_speed = 5. * delta_time;
     for (key, value) in keys {
         match (key, value) {
             (Key::W, true) => *camera_pos += camera_speed * camera_front,
@@ -340,6 +346,8 @@ fn main() {
         (shader_program, vao, cube_positions, texture1, texture2)
     };
 
+    let mut last_frame: f32 = 0.;
+
     let mut keys: HashMap<Key, bool> = HashMap::new();
 
     let mut camera_pos: Point3<f32> = Point3::new(0., 0., 3.);
@@ -347,9 +355,14 @@ fn main() {
     let camera_up = vec3(0., 1., 0.);
 
     while !window.should_close() {
+
+        let current_frame = glfw.get_time() as f32;
+        let delta_time = current_frame - last_frame;
+        last_frame = current_frame;
+
         glfw.poll_events();
         process_events(&mut window, &events, &mut keys);
-        do_movement(&keys, &mut camera_pos, &camera_front, &camera_up);
+        do_movement(&keys, &mut camera_pos, &camera_front, &camera_up, delta_time);
 
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
