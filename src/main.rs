@@ -396,9 +396,8 @@ fn main() {
             gl::BindVertexArray(vao);
             for (index, cube_vec) in cube_positions.iter().enumerate() {
                 let mut model = Matrix4::from_translation(*cube_vec);
-                let time = glfw.get_time() as f32;
                 let angle = if index % 3 == 0 {
-                    30. * time
+                    30. * current_frame
                 } else {
                     20. * index as f32
                 };
